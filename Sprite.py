@@ -18,6 +18,7 @@ class Sprite(pygame.sprite.Sprite):
 		self.obstacles = obstacles
 		self.old_state = None
 		self.warp = None
+		self.offset = offset
 		if spritesheet != None:
 			self.spritesheet, self.rectangle = self.load_image(spritesheet)
 			self.animate = Animate(self.spritesheet, offset)
@@ -71,39 +72,46 @@ class Sprite(pygame.sprite.Sprite):
 			if collide == False:
 				self.rect = newposition            # if true, the character is moved to that position
 			elif collide == True:
-				if self.state == 'up':
-					self.old_state = 'up'
-					self.displacement = [0,0]  # negates any movement already going on
-					self.movedown()            # 'bumps' the character off the wall
-					newposition = self.rect.move(self.displacement)
-					self.rect = newposition
-					self.displacement = [0,0]  # stops the bump
-					self.state = 'still'       # makes sure the state is still
-				if self.state == 'down':
-					self.old_state = 'down'
-					self.displacement = [0,0]
-					self.moveup()
-					newposition = self.rect.move(self.displacement)
-					self.rect = newposition
-					self.displacement = [0,0]
-					self.state = 'still'
-				if self.state == 'left':
-					self.old_state = 'left'
-					self.displacement = [0,0]
-					self.moveright()
-					newposition = self.rect.move(self.displacement)
-					self.rect = newposition
-					self.displacement = [0,0]
-					self.state = 'still'
-				if self.state == 'right':
-					self.old_state = 'right'
-					self.displacement = [0,0]
-					self.moveleft()
-					newposition = self.rect.move(self.displacement)
-					self.rect = newposition
-					self.displacement = [0,0]
-					self.state = 'still'
+				self.stop()
 		pygame.event.pump()
+	
+	def changeSheet(self, spritesheet):
+		self.spritesheet, self.rectangle = self.load_image(spritesheet)
+		self.animate = Animate(self.spritesheet, self.offset)
+	
+	def stop(self):
+		if self.state == 'up':
+			self.old_state = 'up'
+			self.displacement = [0,0]  # negates any movement already going on
+			self.movedown()            # 'bumps' the character off the wall
+			newposition = self.rect.move(self.displacement)
+			self.rect = newposition
+			self.displacement = [0,0]  # stops the bump
+			self.state = 'still'       # makes sure the state is still
+		if self.state == 'down':
+			self.old_state = 'down'
+			self.displacement = [0,0]
+			self.moveup()
+			newposition = self.rect.move(self.displacement)
+			self.rect = newposition
+			self.displacement = [0,0]
+			self.state = 'still'
+		if self.state == 'left':
+			self.old_state = 'left'
+			self.displacement = [0,0]
+			self.moveright()
+			newposition = self.rect.move(self.displacement)
+			self.rect = newposition
+			self.displacement = [0,0]
+			self.state = 'still'
+		if self.state == 'right':
+			self.old_state = 'right'
+			self.displacement = [0,0]
+			self.moveleft()
+			newposition = self.rect.move(self.displacement)
+			self.rect = newposition
+			self.displacement = [0,0]
+			self.state = 'still'
 			
 	def moveup(self):
 		self.displacement[1] -= self.speed                 # displaces rectangle up by speed
@@ -168,6 +176,173 @@ class Sprite(pygame.sprite.Sprite):
 			self.world = world
 		else:
 			return self.world
+			
+	def getRect(self):
+		return self.rect
+
+class Enemy(pygame.sprite.Sprite):
+	def __init__(self, position, obstacles, spritesheet, stills, control=False, health=8, speed=1.5, offset=(20,40)):
+		pygame.sprite.Sprite.__init__(self)
+		self.obstacles = obstacles
+		self.old_state = None
+		self.warp = None
+		if spritesheet != None:
+			self.spritesheet, self.rectangle = self.load_image(spritesheet)
+			self.animate = Animate(self.spritesheet, offset)
+		self.state = 'still'                               # sets initial state
+		self.speed = speed                                   # sets the speed at which the character moves 
+		self.displacement = [0,0]
+		self.x_pos, self.y_pos = position
+		self.control = control
+		self.basehealth = health
+		self.UpStill, self.RightStill, self.DownStill, self.LeftStill = stills
+		if spritesheet != None:
+			self.image = self.animate.getCurrentFrame()
+		else:
+			self.image = pygame.image.load(self.UpStill)
+		self.rect = self.image.get_rect()
+		self.rect.center = (self.x_pos, self.y_pos)
+		self.screen = pygame.display.get_surface()              # sets screen as the display surface, I think?
+		self.area = self.screen.get_rect()                      # makes the self.area variable equal to the area of the screen
+		if self.control == False:
+			self.obstacles.append(self.rect)
+	
+	def load_image(self, path):
+		"""loads an image and returns it and the rectangle"""
+		image = pygame.image.load(path)
+		image.convert_alpha()
+		return image, image.get_rect
+	
+	def update(self, obstacles, item=None):
+		change = self.animate.update()
+		if change:
+			self.image = self.animate.getCurrentFrame()
+		if self.state == 'still':
+			if self.old_state == 'down':
+				self.image = pygame.image.load(self.DownStill)
+				self.image.convert_alpha()
+			elif self.old_state == 'left':
+				self.image = pygame.image.load(self.LeftStill)
+				self.image.convert_alpha()
+			elif self.old_state == 'right':
+				self.image = pygame.image.load(self.RightStill)
+				self.image.convert_alpha()
+			elif self.old_state == 'up':
+				self.image = pygame.image.load(self.UpStill)
+				self.image.convert_alpha()
+			else:
+				self.image = pygame.image.load(self.DownStill).convert_alpha()
+			
+		newposition = self.rect.move(self.displacement)    # takes the displacement and has the sprite displaced by that much
+		if self.area.contains(newposition):                # checks to see if sprite is still in the window
+			#print self.rect
+			collide = self.check_collision(self.rect, obstacles)
+			if collide == False:
+				self.rect = newposition            # if true, the character is moved to that position
+			elif collide == True:
+				self.stop()
+		pygame.event.pump()
+			
+	def stop(self):
+		if self.state == 'up':
+			self.old_state = 'up'
+			self.displacement = [0,0]  # negates any movement already going on
+			self.movedown()            # 'bumps' the character off the wall
+			newposition = self.rect.move(self.displacement)
+			self.rect = newposition
+			self.displacement = [0,0]  # stops the bump
+			self.state = 'still'       # makes sure the state is still
+		if self.state == 'down':
+			self.old_state = 'down'
+			self.displacement = [0,0]
+			self.moveup()
+			newposition = self.rect.move(self.displacement)
+			self.rect = newposition
+			self.displacement = [0,0]
+			self.state = 'still'
+		if self.state == 'left':
+			self.old_state = 'left'
+			self.displacement = [0,0]
+			self.moveright()
+			newposition = self.rect.move(self.displacement)
+			self.rect = newposition
+			self.displacement = [0,0]
+			self.state = 'still'
+		if self.state == 'right':
+			self.old_state = 'right'
+			self.displacement = [0,0]
+			self.moveleft()
+			newposition = self.rect.move(self.displacement)
+			self.rect = newposition
+			self.displacement = [0,0]
+			self.state = 'still'
+			
+	def moveup(self):
+		self.displacement[1] -= self.speed                 # displaces rectangle up by speed
+		if self.state != 'still':
+			self.displacement[0] = 0                   # makes sure character only moves in one axis at a time
+		self.state = 'up'
+	
+	def movedown(self):
+		self.displacement[1] += self.speed                 # displaces rectangle down by speed
+		if self.state != 'still':
+			self.displacement[0] = 0
+		self.state = 'down'
+	
+	def moveleft(self):
+		self.displacement[0] -= self.speed                 # displaces rectangle left by speed
+		if self.state != 'still':
+			self.displacement[1] = 0
+		self.state = 'left'
+		
+	def moveright(self):
+		self.displacement[0] += self.speed                 # displaces rectangle right by speed
+		if self.state != 'still':
+			self.displacement[1] = 0
+		self.state = 'right'
+		
+	def check_collision(self, rectangle, obstacle):
+		"""This function takes a rectangle passed to it (that is, the character)
+		and makes sure that it doesn't colide with any of the rectangles in
+		the list. it's really backwards how it works though:
+		It will return a -1 if nothing collides, so the first if statement
+		checks to see if it *did* collide. If it does, it returns the
+		Boolean value True, meaning that it did collide. Otherwise
+		it returns saying there is no collision"""
+		if rectangle.collidelist(obstacle) != -1:
+			#print rectangle.collidelist(obstacle)
+			return True
+		else:
+			return False
+			
+	#def check_teleport(self, current, teleport):
+	#	if len(teleport) > 0:
+	#		#print "%s, %d" % (self.area.right, self.rect.y)
+	#		if (self.rect.collidelist(teleport)) != -1:
+	#			self.warp = Teleport((self.rect.x, self.rect.y), current, self.area)
+	#			path, newWorld, movement, axis = self.warp.renderWorld()
+	#			print movement
+	#			self.moveSprite(movement, axis)
+	#			self.getWorld(True, newWorld)
+	#			return path
+				
+	#def moveSprite(self, movement, axis='z'):
+	#	if axis == 'x':
+	#		self.rect.x = movement
+	#	elif axis == 'y':
+	#		self.rect.y = movement
+	#	else:
+	#		print "Error in Teleport.py"
+		#print self.area.right
+			
+	def getWorld(self, set=False, world=None):
+		if (set == True) and (world != None):
+			self.world = world
+		else:
+			return self.world
+			
+	def getRect(self):
+		return self.rect
 
 class Animate:
 	def __init__(self, spritesheetimage, position):

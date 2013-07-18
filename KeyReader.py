@@ -39,6 +39,9 @@ class KeyReader():
 			self.trackback = 'swing'
 			#self.swing()
 			#textList = []
+			return (0, OGbackground, self.trackback)
+		elif self.key == K_c:
+			self.trackback = 'talk'
 			logue = Dialogue('5', self.window, OGbackground)
 			text = logue.readTable()
 			textList = logue.breakText(text)

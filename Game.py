@@ -14,16 +14,17 @@ import ConfigParser
 import os
 import shutil
 import time
+import xml.etree.ElementTree as ET
 from pygame.locals import *
 from Level import *
 from KeyReader import *
-from Sprite import Animate
-from Sprite import Sprite
+import Sprite
 from KeyReader import *
 
 
 
-def main(currentWorld, path, windowRect, level, background, obstacles, teleports, position, Hero, char):
+def main(currentWorld, path, windowRect, level, background, obstacles, teleports, position, Hero, char, attack, defense, Enemy, heroSprite, enemySprites):
+	leftcount = 0
 	while True:
 		fpsClock.tick(45)                                  # max of 45fps
 		for event in pygame.event.get():
@@ -48,22 +49,34 @@ def main(currentWorld, path, windowRect, level, background, obstacles, teleports
 							if track == 'inventory':
 								item = inventory.moveCursor(False,track)
 								if item != False and item != None:
-									Hero = Sprite(position, obstacles, os.path.join('SpriteDev', 'Sheets', item.rstrip()),(os.path.join('SpriteDev','UpStill.png'),os.path.join('SpriteDev','RightStill.png'),os.path.join('SpriteDev','DownStill.png'),os.path.join('SpriteDev','LeftStill.png')), True) #updates the sprite sheet to be of the character holding the weapon
+									Hero.changeSheet(os.path.join('SpriteDev','Sheets',item.rstrip())) #updates the sprite sheet to be of the character holding the weapon
 									pygame.display.flip() #updates the screen
-									char = pygame.sprite.RenderPlain(Hero) #renders the sprite
+									heroSprite = pygame.sprite.RenderPlain(Hero) #renders the sprite
 								break
 							elif track == 'weapons':
 								item = inventory.moveCursor(True,track)
 								if item != False and item != None:
-									Hero = Sprite(position, obstacles, os.path.join('SpriteDev', 'Sheets', item.rstrip()),(os.path.join('SpriteDev','UpStill.png'),os.path.join('SpriteDev','RightStill.png'),os.path.join('SpriteDev','DownStill.png'),os.path.join('SpriteDev','LeftStill.png')), True) #updates the sprite sheet to be of the character holding the weapon
+									Hero.changeSheet(os.path.join('SpriteDev','Sheets',item.rstrip())) #updates the sprite sheet to be of the character holding the weapon
 									pygame.display.flip() #updates the screen
-									char = pygame.sprite.RenderPlain(Hero) #renders the sprite
+									heroSprite = pygame.sprite.RenderPlain(Hero) #renders the sprite
+									#if item.rstrip() == "Sword.png":
+									attack, defense = weaponData(item)
 								break
-							if backg != 1 and track == 'swing': #just a testing thing
+							if backg != 1 and track == 'talk': #just a testing thing
 								dialogueLoop(k, path) # see documentation there
 								level = Level(path, windowRect) #re parses teh backround
 								level.read_map() 
 								background = level.render() #resets the background
+							elif track == 'swing':
+								if Hero.old_state == None:
+									print "down"
+									print attack 
+								elif Hero.state == 'still': #and Hero.state != None:
+									print Hero.old_state+" old"
+									print attack
+								else:
+									print Hero.state+" current"
+									print attack
 							#print isinstance(k, int)
 							if k == 42: #42 is the official quit signal for k
 								q = 0
@@ -94,7 +107,34 @@ def main(currentWorld, path, windowRect, level, background, obstacles, teleports
 						pygame.display.flip()
 			elif event.type == KEYUP: #stops movement when arrow key is released
 				Movement.stop(Hero, event.key)
+		herocollide = Enemy.check_collision(Enemy.getRect(),[Hero.getRect()])
+		if herocollide != True:
+			if leftcount < 35:
+				left = pygame.event.Event(KEYDOWN, key=K_LEFT)
+				Movement.start(Enemy, left.key, obstacles)
+				Movement.stop(Enemy,left.key)
+				leftcount +=1
+			elif leftcount >= 35 and leftcount < 70:
+				left = pygame.event.Event(KEYDOWN, key=K_DOWN)
+				Movement.start(Enemy, left.key, obstacles)
+				Movement.stop(Enemy,left.key)
+				leftcount +=1
+			elif leftcount >= 70 and leftcount < 105:
+				left = pygame.event.Event(KEYDOWN, key=K_RIGHT)
+				Movement.start(Enemy, left.key, obstacles)
+				Movement.stop(Enemy,left.key)
+				leftcount +=1
+			elif leftcount >= 105 and leftcount < 140:
+				left = pygame.event.Event(KEYDOWN, key=K_UP)
+				Movement.start(Enemy, left.key, obstacles)
+				Movement.stop(Enemy,left.key)
+				leftcount +=1
+		if leftcount == 140:
+			leftcount = 0
 		char.update(obstacles) #checks for collisions between sprites
+		enemyCollide = Hero.check_collision(Hero.getRect(),[Enemy.getRect()])
+		if enemyCollide != False:
+			Hero.stop()
 		path_2 = Hero.check_teleport(currentWorld, teleports) #checks to see if the character has moved to a different world
 		if (path_2 != path) and (path_2 != None): #if path_2 is different than the already existent one, and exists
 			path = path_2 #sets path to path_2
@@ -103,7 +143,8 @@ def main(currentWorld, path, windowRect, level, background, obstacles, teleports
 			level.read_map()                #redoes the level render
 			currentWorld = Hero.getWorld()  #sets the current word to wherever the hero is so that background can be properly rendered
 			#print currentWorld
-			background = level.render() #makes the background 
+			background = level.render() #makes the background
+			char = pygame.sprite.RenderPlain(Hero) 
 		teleports = [] # clears the sets
 		obstacles = []
 		obstacles, teleports = getTiles() # resets the tiles
@@ -111,6 +152,24 @@ def main(currentWorld, path, windowRect, level, background, obstacles, teleports
 #		window.blit(background, (0,0))
 #		char.draw(window)
 #		pygame.display.flip()
+
+def weaponData(weapon):
+	#print "here"
+	name = weapon.split('.')
+	name = name[0]
+	tree = ET.parse(os.path.join('ItemData','weapons.xml'))
+	#print "done"
+	root = tree.getroot()
+	element = root.find(name)
+	#element = root.Element(name)
+	#print element
+	tag = element.find('attack')
+	attack = tag.text
+	tag = element.find('defense')
+	defense = tag.text
+	print attack+","+defense
+	return (attack,defense)
+	
 
 def dialogueLoop(textList, path):
 	q = 1 # this might actually be useless
@@ -196,6 +255,10 @@ def change_Background(background, coords=(0,0), flip=True, sprite=False):
 		sprite.draw(window)
 	if flip != False:
 		pygame.display.flip()
+		
+#def renderSprites(sprites):
+#	spriteRendered = pygame.sprite.RenderPlain(sprites)
+#	return spriteRendered
 		
 		
 ##################################
@@ -300,7 +363,7 @@ class InventoryMap():
 		
 	def selectItem(self, item, track):
 		pos = item-1
-		print track+'.save'
+		#print track+'.save'
 		with open(os.path.join('conf',track+'.save'), 'r') as f:
 			itemList = f.readlines()
 		try:
@@ -333,19 +396,19 @@ class InventoryMap():
 					if (event.key == K_LEFT) and (position-1)%6 != 0:
 						position -= 1
 						coordinates[0] -= 80
-						print "left %s" % position
+						#print "left %s" % position
 					elif (event.key == K_RIGHT) and (position%6 != 0):
 						position += 1
 						coordinates[0] += 80
-						print "right %s" % position
+						#print "right %s" % position
 					elif (event.key == K_DOWN) and position < 25: 
 						position += 6
 						coordinates[1] += 80
-						print "down %s" % position
+						#print "down %s" % position
 					elif (event.key == K_UP) and position > 6:
 						position -= 6
 						coordinates[1] -= 80
-						print "up %s" % position
+						#print "up %s" % position
 					backg.blit(selected, (coordinates[0],coordinates[1]))
 					if event.key == K_RETURN:
 						item = self.selectItem(position, track)
@@ -363,6 +426,8 @@ window = pygame.display.set_mode(fullscreen[0])
 #window = pygame.display.set_mode((1200,800))
 pygame.display.set_caption('CMC Game')
 global currentWorld, path, windowRect, level, background, obstacles, teleports, position, Hero, char
+attack = 1
+defense = 0
 currentWorld = 'Home'
 path = os.path.join('conf','levelmap')
 itemPath = 'ItemData'
@@ -374,6 +439,9 @@ window.blit(background, (0,0))
 obstacles, teleports = getTiles()
 pygame.display.flip()
 position = getCharacter()
-Hero = Sprite(position, obstacles, os.path.join('SpriteDev','Sheets','spritesheet1.png'),(os.path.join('SpriteDev','UpStill.png'),os.path.join('SpriteDev','RightStill.png'),os.path.join('SpriteDev','DownStill.png'),os.path.join('SpriteDev','LeftStill.png')), True)
-char = pygame.sprite.RenderPlain(Hero)
-main(currentWorld, path, windowRect, level, background, obstacles, teleports, position, Hero, char)
+Hero = Sprite.Sprite(position, obstacles, os.path.join('SpriteDev','Sheets','spritesheet1.png'),(os.path.join('SpriteDev','UpStill.png'),os.path.join('SpriteDev','RightStill.png'),os.path.join('SpriteDev','DownStill.png'),os.path.join('SpriteDev','LeftStill.png')), True)
+Enemy = Sprite.Enemy((400,500), obstacles, os.path.join('SpriteDev','Sheets','enemysheet.png'),(os.path.join('SpriteDev','EnemyUpStill.png'),os.path.join('SpriteDev','EnemyRightStill.png'),os.path.join('SpriteDev','EnemyDownStill.png'),os.path.join('SpriteDev','EnemyLeftStill.png')), True)
+char = pygame.sprite.RenderPlain(Hero, Enemy)
+heroSprite = pygame.sprite.RenderPlain(Hero)
+enemySprites = pygame.sprite.RenderPlain(Enemy)
+main(currentWorld, path, windowRect, level, background, obstacles, teleports, position, Hero, char, attack, defense, Enemy, heroSprite, enemySprites)
