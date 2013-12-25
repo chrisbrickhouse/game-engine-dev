@@ -2,18 +2,23 @@
 # -*- coding: utf-8 -*-
 #
 #   CMCGame
-#   Sourcecde Copyright Christian Brickhouse 2012 -2013
+#   Sourcecode Copyright Christian Brickhouse 2012 -2013
 #   Art Copyright Christian Brickhouse and Charlie Carver 2012 - 2013
-#   Version 0.0_9.2
-#   12 July 2013
+#   Version 0.0_12
+#   25 Dec 2013
 #
 ##########################
 import pygame
 import Movement
 import ConfigParser
 import os
+import sys
 import shutil
 import time
+import Enemies
+import Save
+import datetime
+import inspect
 import xml.etree.ElementTree as ET
 from pygame.locals import *
 from Level import *
@@ -28,6 +33,7 @@ def main(currentWorld, path, windowRect, level, background, obstacles, teleports
 	while True:
 		fpsClock.tick(45)                                  # max of 45fps
 		for event in pygame.event.get():
+			#print event
 			if event.type == QUIT: #check for quit signal and properly terminate. 
 				shutdown()
 				return
@@ -36,9 +42,12 @@ def main(currentWorld, path, windowRect, level, background, obstacles, teleports
 				if event.key == K_ESCAPE: #escape key exits
 					shutdown()
 					return
+				elif event.key == K_l:
+					Save.saveGame(currentWorld, Hero.getRect().topleft, Hero.health, Enemy.getRect().topleft, Enemy.health, Enemy.world, Enemy.old_state, Enemy.state)
 				elif (event.key == K_LEFT) or (event.key == K_RIGHT) or (event.key == K_DOWN) or (event.key == K_UP):
 					# Checks for arrow keys and moves the character in that direction
-					Movement.start(Hero, event.key, obstacles)
+					Hero.start(event.key, obstacles)
+					#Enemy.start(event.key, obstacles)
 				else:
 					k, q = 1,1 #counters
 					while k == 1:
@@ -62,21 +71,26 @@ def main(currentWorld, path, windowRect, level, background, obstacles, teleports
 									#if item.rstrip() == "Sword.png":
 									attack, defense = weaponData(item)
 								break
+							elif track == 'swing':
+								kill = swing(Hero, attack, defense, Enemy)
+								if kill == True:
+									Enemy.kill(True)
+									enemycollide = False
+								break
 							if backg != 1 and track == 'talk': #just a testing thing
 								dialogueLoop(k, path) # see documentation there
 								level = Level(path, windowRect) #re parses teh backround
 								level.read_map() 
 								background = level.render() #resets the background
-							elif track == 'swing':
-								if Hero.old_state == None:
-									print "down"
-									print attack 
-								elif Hero.state == 'still': #and Hero.state != None:
-									print Hero.old_state+" old"
-									print attack
-								else:
-									print Hero.state+" current"
-									print attack
+								#if Hero.old_state == None:
+								#	print "down"
+								#	print attack 
+								#elif Hero.state == 'still': #and Hero.state != None:
+								#	print Hero.old_state+" old"
+								#	print attack
+								#else:
+								#	print Hero.state+" current"
+								#	print attack
 							#print isinstance(k, int)
 							if k == 42: #42 is the official quit signal for k
 								q = 0
@@ -88,53 +102,41 @@ def main(currentWorld, path, windowRect, level, background, obstacles, teleports
 								return
 							else:
 								q +=1 #iterates the main loop if nothing happens
-						#if q >= 1: #makes sure that events aren't 
-						#	for event in pygame.event.get():
-						#		if event.type == KEYDOWN:
-						#			if event.key == K_ESCAPE:
-						#				shutdown() #another shutdown check
-						#				return
-						#			reader = KeyReader(event.key, window, fpsClock.tick(45))
-						#			k, backg, track = reader.testKey(background, track, backg)
-						#			if backg != 1: # 1 is the official quit signal for backg
-						#				window.blit(backg, (0,0)) #draws new background to the window
-									#print k
-						fpsClock.tick(45)
 						if backg != 1:
 							change_Background(backg, (0,0), True)
 						if track == 'quit':
 							break
 						pygame.display.flip()
 			elif event.type == KEYUP: #stops movement when arrow key is released
-				Movement.stop(Hero, event.key)
-		herocollide = Enemy.check_collision(Enemy.getRect(),[Hero.getRect()])
+				#print Hero.state,"hero"
+				Hero.stopSimple()
+				#Enemy.stopSimple()
+				#print Hero.state,"hero"
+		herocollide = True
+		if Enemy.alive() == True:
+			herocollide = Enemy.check_collision(Enemy.getRect(),[Hero.getRect()])
+			enemyCollide = Hero.check_collision(Hero.getRect(),[Enemy.getRect()])
+		else:
+			enemyCollide = False
 		if herocollide != True:
-			if leftcount < 35:
-				left = pygame.event.Event(KEYDOWN, key=K_LEFT)
-				Movement.start(Enemy, left.key, obstacles)
-				Movement.stop(Enemy,left.key)
-				leftcount +=1
-			elif leftcount >= 35 and leftcount < 70:
-				left = pygame.event.Event(KEYDOWN, key=K_DOWN)
-				Movement.start(Enemy, left.key, obstacles)
-				Movement.stop(Enemy,left.key)
-				leftcount +=1
-			elif leftcount >= 70 and leftcount < 105:
-				left = pygame.event.Event(KEYDOWN, key=K_RIGHT)
-				Movement.start(Enemy, left.key, obstacles)
-				Movement.stop(Enemy,left.key)
-				leftcount +=1
-			elif leftcount >= 105 and leftcount < 140:
-				left = pygame.event.Event(KEYDOWN, key=K_UP)
-				Movement.start(Enemy, left.key, obstacles)
-				Movement.stop(Enemy,left.key)
-				leftcount +=1
+			Enemy.AI(Hero.getRect().center, obstacles)
+			#Enemy2.AI(Hero.getRect().center, obstacles)
+		elif Enemy.alive():
+			Enemy.stop(20)
+			damage = .25-float(defense)
+			if damage < 0:
+				damage = 0 
+			Hero.health -= damage
+			#print "hero: %s" % Hero.health
+			#print Hero.rect.size
 		if leftcount == 140:
 			leftcount = 0
+		#if leftcount%10 == 0:
+			#print Enemy.rect.center
 		char.update(obstacles) #checks for collisions between sprites
-		enemyCollide = Hero.check_collision(Hero.getRect(),[Enemy.getRect()])
-		if enemyCollide != False:
-			Hero.stop()
+		if enemyCollide != False and Enemy.alive() == True:
+			#print "Here"
+			Hero.stop(5)
 		path_2 = Hero.check_teleport(currentWorld, teleports) #checks to see if the character has moved to a different world
 		if (path_2 != path) and (path_2 != None): #if path_2 is different than the already existent one, and exists
 			path = path_2 #sets path to path_2
@@ -148,10 +150,17 @@ def main(currentWorld, path, windowRect, level, background, obstacles, teleports
 		teleports = [] # clears the sets
 		obstacles = []
 		obstacles, teleports = getTiles() # resets the tiles
+		if Hero.health <= 0:
+			shutdown()
+		#Test = Hero.check_collision(Hero.getRect(),[Enemy.getRect()])
+		#print Test
 		change_Background(background, (0,0), True, char)
+		updateHearts(Hero.health)
 #		window.blit(background, (0,0))
 #		char.draw(window)
 #		pygame.display.flip()
+		save = [currentWorld, Hero.getRect().topleft, Hero.health, Enemy.getRect().topleft, Enemy.health]
+		#print datetime.datetime.now().strftime('%H.%M.%S.%Y-%m-%d')
 
 def weaponData(weapon):
 	#print "here"
@@ -242,25 +251,132 @@ def shutdown():
 		os.rename('Inventory.map.bak', 'Inventory.map')
 		os.remove('coord.temp')
 		print "Shutting down NOW"
-		return
+		sys.exit()
 	except:
 		print "nothing to delete"
 		print "Shutting down NOW"
-		return
+		sys.exit()
 	
 
 def change_Background(background, coords=(0,0), flip=True, sprite=False):
 	window.blit(background, coords)
 	if sprite != False:
 		sprite.draw(window)
-	if flip != False:
-		pygame.display.flip()
+	#if flip != False:
+	#	pygame.display.flip()
 		
 #def renderSprites(sprites):
 #	spriteRendered = pygame.sprite.RenderPlain(sprites)
 #	return spriteRendered
-		
-		
+
+def swing(sprite, attack, defense, enemies):
+	kill = False
+	if sprite.state == 'down' or sprite.old_state == 'down':
+		rect = sprite.rect.copy()
+		rect.bottom = rect.bottom +15
+		Collide = sprite.check_collision(rect,[enemies.getRect()])
+		if Collide == True:
+			enemies.health -= int(attack)
+			print enemies.health
+		if enemies.health <= 0:
+			kill = True
+			enemies.rect.size = (0,0)
+			sprite.update([enemies.getRect()])
+	elif sprite.state == 'left' or sprite.old_state == 'left':
+		rect = sprite.rect.copy()
+		rect.left = rect.left +15
+		Collide = sprite.check_collision(rect,[enemies.getRect()])
+		if Collide == True:
+			enemies.health -= int(attack)
+			print enemies.health
+		if enemies.health <= 0:
+			kill = True
+			enemies.rect.size = (0,0)
+			sprite.update([enemies.getRect()])
+	elif sprite.state == 'right' or sprite.old_state == 'right':
+		rect = sprite.rect.copy()
+		rect.right = rect.right +15
+		Collide = sprite.check_collision(rect,[enemies.getRect()])
+		if Collide == True:
+			enemies.health -= int(attack)
+			print enemies.health
+		if enemies.health <= 0:
+			kill = True
+			enemies.rect.size = (0,0)
+			sprite.update([enemies.getRect()])
+	elif sprite.state == 'up' or sprite.old_state == 'up':
+		rect = sprite.rect.copy()
+		rect.top = rect.top +15
+		Collide = sprite.check_collision(rect,[enemies.getRect()])
+		if Collide == True:
+			enemies.health -= int(attack)
+			print enemies.health
+		if enemies.health <= 0:
+			kill = True
+			enemies.rect.size = (0,0)
+			sprite.update([enemies.getRect()])
+	return kill	
+	
+def updateHearts(health):
+	surf = pygame.Surface((200,40))
+	health = int(health)
+	windowrect = window.get_rect()
+	q = (windowrect.width-200)/2
+	left=0
+	bottom=0
+	full = pygame.image.load(os.path.join('conf','fullheart.png')).convert_alpha()
+	empty = pygame.image.load(os.path.join('conf','emptyheart.png')).convert_alpha()
+	half = pygame.image.load(os.path.join('conf','halfheart.png')).convert_alpha()
+	if health == 10:
+		surf.blit(full,(0,0))
+		left+=40
+		surf.blit(full,(40,0))
+		left+=40
+		surf.blit(full,(80,0))
+		left+=40
+		surf.blit(full,(120,0))
+		left+=40
+		surf.blit(full,(160,0))
+	elif health >= 8:
+		surf.blit(full,(0,0))
+		left+=40
+		surf.blit(full,(40,0))
+		left+=40
+		surf.blit(full,(80,0))
+		left+=40
+		surf.blit(full,(120,0))
+		left+=40
+		surf.blit(empty,(160,0))
+	elif health >= 6:
+		surf.blit(full,(0,0))
+		left+=40
+		surf.blit(full,(40,0))
+		left+=40
+		surf.blit(full,(80,0))
+		left+=40
+		surf.blit(empty,(120,0))
+		surf.blit(empty,(160,0))
+	elif health >= 4:
+		surf.blit(full,(0,0))
+		left+=40
+		surf.blit(full,(40,0))
+		left+=40
+		surf.blit(empty,(80,0))
+		surf.blit(empty,(120,0))
+		surf.blit(empty,(160,0))
+	elif health >= 2:
+		surf.blit(full,(0,0))
+		left+=40
+		surf.blit(empty,(40,0))
+		surf.blit(empty,(80,0))
+		surf.blit(empty,(120,0))
+		surf.blit(empty,(160,0))
+	if health%2 == 1:
+		surf.blit(half,(left,0))
+	surf.set_colorkey((0,0,0))
+	window.blit(surf,(q,windowRect.top))
+	pygame.display.flip()
+
 ##################################
 class InventoryMap():
 	def __init__(self,window):
@@ -382,8 +498,9 @@ class InventoryMap():
 		position = 1
 		coordinates = [(windowRect.right - 800)/2 + 160,windowRect.top+160]
 		backg.blit(selected, (coordinates[0],coordinates[1]))
-		while track == 'inventory' or track == 'weapons':
-			change_Background(backg, (0,0), True)
+		while quitArg == 0:
+			change_Background(backg, (0,0))
+			pygame.display.flip()
 			#print "you fuck"
 			for event in pygame.event.get():
 				#print event.key
@@ -424,24 +541,124 @@ fullscreen = pygame.display.list_modes()
 fpsClock = pygame.time.Clock()
 window = pygame.display.set_mode(fullscreen[0])
 #window = pygame.display.set_mode((1200,800))
-pygame.display.set_caption('CMC Game')
+pygame.display.set_caption('Lorem Ipsum: The Game')
 global currentWorld, path, windowRect, level, background, obstacles, teleports, position, Hero, char
-attack = 1
-defense = 0
-currentWorld = 'Home'
-path = os.path.join('conf','levelmap')
-itemPath = 'ItemData'
-windowRect = window.get_rect()
-level = Level(path, windowRect)
-level.read_map()
-background = level.render()
-window.blit(background, (0,0))
-obstacles, teleports = getTiles()
-pygame.display.flip()
-position = getCharacter()
-Hero = Sprite.Sprite(position, obstacles, os.path.join('SpriteDev','Sheets','spritesheet1.png'),(os.path.join('SpriteDev','UpStill.png'),os.path.join('SpriteDev','RightStill.png'),os.path.join('SpriteDev','DownStill.png'),os.path.join('SpriteDev','LeftStill.png')), True)
-Enemy = Sprite.Enemy((400,500), obstacles, os.path.join('SpriteDev','Sheets','enemysheet.png'),(os.path.join('SpriteDev','EnemyUpStill.png'),os.path.join('SpriteDev','EnemyRightStill.png'),os.path.join('SpriteDev','EnemyDownStill.png'),os.path.join('SpriteDev','EnemyLeftStill.png')), True)
-char = pygame.sprite.RenderPlain(Hero, Enemy)
-heroSprite = pygame.sprite.RenderPlain(Hero)
-enemySprites = pygame.sprite.RenderPlain(Enemy)
-main(currentWorld, path, windowRect, level, background, obstacles, teleports, position, Hero, char, attack, defense, Enemy, heroSprite, enemySprites)
+h = 1
+while h == 1:
+	TitleFont1 = pygame.font.SysFont("monospace", 90)
+	TitleFont2 = pygame.font.SysFont("monospace", 70)
+	ButtonFont = pygame.font.SysFont("monospace", 20, bold=True)
+	TitleRender1 =  TitleFont1.render("Lorem Ipsum:", 1, (255,255,255), (0,0,0))
+	TitleRender2 =  TitleFont2.render("The Game", 1, (255,255,255), (0,0,0))
+	Start = ButtonFont.render("New Game", 1, (0,0,0), (255,255,255))
+	Load = ButtonFont.render("Load Game", 1, (0,0,0), (255,255,255))
+	Options = ButtonFont.render("Options", 1, (0,0,0), (255,255,255))
+	Button = pygame.image.load(os.path.join('conf','ButtonBackgroundUp.png'))
+	window.fill((0,0,0))
+	x,y = window.get_rect().centerx, window.get_rect().height
+	xh = window.get_rect().width
+	z,a = TitleRender1.get_rect().width, TitleRender1.get_rect().height
+	b,c = TitleRender2.get_rect().width, TitleRender2.get_rect().height
+	d,e = Start.get_rect().width, Start.get_rect().height
+	f,g = Load.get_rect().width, Load.get_rect().height
+	i,j = Options.get_rect().width, Options.get_rect().height
+	xh = xh / 3
+	y=y/3
+	z=z/2
+	a=a/2 
+	b=b/2
+	d /= 2
+	e /= 2
+	f /= 2
+	g /= 2
+	i /= 2
+	j /= 2
+	window.blit(TitleRender1, (x - z, y - a))
+	window.blit(TitleRender2, (x - b, y + a))
+	window.blit(Button, (x-65, 2*y))
+	window.blit(Button, (xh-65, 2*y))
+	window.blit(Button, (xh*2-65, 2*y))
+	####################################
+	window.blit(Start, (xh-d, 2*y+18-e))
+	window.blit(Load, (x-f, 2*y+18-g))
+	window.blit(Options, (xh*2-i, 2*y+18-j))
+	####################################
+	ButtonRect1 = Rect((xh-d, 2*y+18-e),(130,35))
+	ButtonRect2 = Rect((x-f, 2*y+18-g),(130,35))
+	ButtonRect3 = Rect((xh*2-i, 2*y+18-j),(130,35))
+	pygame.display.flip()
+	for event in pygame.event.get():
+		if event.type == QUIT or (event.type == KEYDOWN and event.key == K_ESCAPE): #check for quit signal and properly terminate. 
+			shutdown()
+			exit()
+		elif event.type == MOUSEBUTTONDOWN:
+			if event.button == 1:
+				if ButtonRect1.collidepoint(event.pos) == True:
+					attack = 1
+					defense = 0
+					currentWorld = 'Home'
+					path = os.path.join('conf','levelmap')
+					itemPath = 'ItemData'
+					windowRect = window.get_rect()
+					level = Level(path, windowRect)
+					level.read_map()
+					background = level.render()
+					window.blit(background, (0,0))
+					obstacles, teleports = getTiles()
+					pygame.display.flip()
+					position = getCharacter()
+					Hero = Sprite.Sprite(position, obstacles, os.path.join('SpriteDev','Sheets','spritesheet1.png'),(os.path.join('SpriteDev','UpStill.png'),os.path.join('SpriteDev','RightStill.png'),os.path.join('SpriteDev','DownStill.png'),os.path.join('SpriteDev','LeftStill.png')), True)
+					Enemy = Enemies.Enemy((400,500), obstacles, os.path.join('SpriteDev','Sheets','enemysheet.png'),(os.path.join('SpriteDev','EnemyUpStill.png'),os.path.join('SpriteDev','EnemyRightStill.png'),os.path.join('SpriteDev','EnemyDownStill.png'),os.path.join('SpriteDev','EnemyLeftStill.png')), currentWorld, True)
+					char = pygame.sprite.RenderPlain(Hero, Enemy)
+					heroSprite = pygame.sprite.RenderPlain(Hero)
+					enemySprites = pygame.sprite.RenderPlain(Enemy)
+					h = 0
+					main(currentWorld, path, windowRect, level, background, obstacles, teleports, position, Hero, char, attack, defense, Enemy, heroSprite, enemySprites)
+				if ButtonRect2.collidepoint(event.pos) == True:
+					save = []
+					save = Save.loadGame(window)
+					currentWorld, heroPos, heroHealth, enemyPos, enemyHealth, enemyWorld, oldstate, newstate = save
+					attack = 1
+					defense = 0
+					if currentWorld!='Home' and currentWorld!='H':
+						currentWorldPath="World"+str(currentWorld)+".map"
+					else:
+						currentWorldPath='levelmap'
+					path = os.path.join('conf',currentWorldPath)
+					itemPath = 'ItemData'
+					windowRect = window.get_rect()
+					level = Level(path, windowRect)
+					level.read_map()
+					background = level.render()
+					window.blit(background, (0,0))
+					heroPos = heroPos.strip(")")
+					heroPos = heroPos.strip("(")
+					heroPos = heroPos.split(",")
+					heroPos = (int(heroPos[0]),int(heroPos[1]))
+					enemyPos = enemyPos.strip(")")
+					enemyPos = enemyPos.strip("(")
+					enemyPos = enemyPos.split(",")
+					enemyPos = (int(enemyPos[0]),int(enemyPos[1]))
+					#print type(heroPos)
+					obstacles, teleports = getTiles()
+					pygame.display.flip()
+					Hero = Sprite.Sprite(heroPos, obstacles, os.path.join('SpriteDev','Sheets','spritesheet1.png'),(os.path.join('SpriteDev','UpStill.png'),os.path.join('SpriteDev','RightStill.png'),os.path.join('SpriteDev','DownStill.png'),os.path.join('SpriteDev','LeftStill.png')), True)
+					if enemyWorld == currentWorld:
+						Enemy = Enemies.Enemy(enemyPos, obstacles, os.path.join('SpriteDev','Sheets','enemysheet.png'),(os.path.join('SpriteDev','EnemyUpStill.png'),os.path.join('SpriteDev','EnemyRightStill.png'),os.path.join('SpriteDev','EnemyDownStill.png'),os.path.join('SpriteDev','EnemyLeftStill.png')), enemyWorld, True)
+						char = pygame.sprite.RenderPlain(Hero, Enemy)
+						heroSprite = pygame.sprite.RenderPlain(Hero)
+						enemySprites = pygame.sprite.RenderPlain(Enemy)
+					else:
+						Enemy = Enemies.Enemy(enemyPos, obstacles, os.path.join('SpriteDev','Sheets','enemysheet.png'),(os.path.join('SpriteDev','EnemyUpStill.png'),os.path.join('SpriteDev','EnemyRightStill.png'),os.path.join('SpriteDev','EnemyDownStill.png'),os.path.join('SpriteDev','EnemyLeftStill.png')), enemyWorld, True)
+						char = pygame.sprite.RenderPlain(Hero, Enemy)
+						heroSprite = pygame.sprite.RenderPlain(Hero)
+						enemySprites = pygame.sprite.RenderPlain(Enemy)
+						Enemy.kill()
+					h = 0
+					Enemy.AI(Hero.getRect().center, obstacles)
+					Enemy.old_state = Enemy.state
+					main(currentWorld, path, windowRect, level, background, obstacles, teleports, heroPos, Hero, char, attack, defense, Enemy, heroSprite, enemySprites)
+					#exit()
+				if ButtonRect3.collidepoint(event.pos) == True:
+					print 'Options isn\'t implemented yet...'
+					exit()

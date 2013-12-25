@@ -3,8 +3,8 @@
 #   CMCGame
 #   Sourcecde Copyright Christian Brickhouse 2012 -2013
 #   Art Copyright Christian Brickhouse and Charlie Carver 2012 - 2013
-#   Version 0.0_9.2
-#   12 July 2013
+#   Version 0.0_12
+#   25 Dec 2013
 #
 ##########################
 

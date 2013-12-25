@@ -1,3 +1,29 @@
+#Changelog v0.0_12
+###"Now with more save!!"
+###25 Dec 2013
+
+### Save.py
+The game now has a save an load feature. The save files are named after the time and date when they are saved. To save a file, press the l button wile in game. Future plans for this module include allowing customized file naming.
+
+### Title Screen
+We have one now. It's not pretty, but it will be in the future. It's mostly a place holder until we have a name and a plot and stuff like that.
+
+#Changelog v0.0_11
+###"Now with more (artificial) intelligence!!"
+###22 Dec 2013
+
+### AI function
+The enemy no longer walks around in a circle, instead, they will follow around the character but slightly slower than the character. It handles collisions with objects by walking to the same latitude or longitude that the character was at when the enemy hit the object. Not	the best system, but it works for now.
+
+### Enemies.py and Sprites.py
+The Enemy class has been moved to its own module for ease of maintenance. Its basic functions like walking are the same as the sprite class, but it now has many of its own functions making it substantially different from the sprite class. The AI function is found in the Emenies module.
+
+### Fighting
+Swinging now damages enemis no matter which direction the character was facing before, unlike previous version where only downward facing attacks were effective as a means of testing the concept before release.
+
+### Inventory System Bug Fix
+Apparently the inventory just didn't open in the last version. I've fixed that. Yay!
+
 #Changelog v0.0_10
 ###"Now with more sprites!"
 ###17 July 2013
