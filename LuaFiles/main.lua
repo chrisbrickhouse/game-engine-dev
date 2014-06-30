@@ -13,7 +13,7 @@
 
 	You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <http://www.gnu.org/licenses/>.
-]]
+	]]
 local sti = require "sti"                                      --requires the sti module so that Tiled files can be used and parsed.
 local collisions = require "Collisions"                        --requires the custom Collisions module
 local Quad = love.graphics.newQuad                             --quad module for using sprite sheets
@@ -21,6 +21,14 @@ function love.load()
 	pass = 0                                               --this variable tells whether the hero has collided (1) or not (0)
 	map = sti.new("level1")                                --loads the first level map
 	collisionMap = map:getCollisionMap("Tile Layer 3")     --loads the layer to use for collision (must be tile layer, not object)
+	modes = love.window.getFullscreenModes()
+	table.sort(modes, function(a, b) return a.width*a.height > b.width*b.height end)   -- sort from largest to smallest
+	--[[for i,v in ipairs(modes) do
+		print(modes[i]["width"])
+	end]]
+	local success = {}
+	table.insert(success, love.window.setMode( modes[1]["width"] , modes[1]["height"]))
+	table.insert(success, love.window.setFullscreen( true , "desktop"))
 	--[[for k,v in pairs(collisionMap["data"]) do
 		--DEBUGGING FUNCTION
 		print(k,",",v)
@@ -66,10 +74,14 @@ function love.load()
 	timer = 0
 	moving = false
 	direction = "down"
+	windowWidth, windowHeight = love.graphics.getDimensions()
+	translateX,translateY = 0,0
+	map:resize(windowWidth, windowHeight)
 end
 
 function love.update(dt)
 	--print(hero.x)
+	deltaT = dt
 	pass = collisions.detection(collisionMap)              --calls the collision detection function to see if the hero collided
 	map:update(dt)                                         --updates the map
 	if moving then
@@ -84,13 +96,14 @@ function love.update(dt)
 		end
 	end
 	mod,axis = movementModifier()                          --see function documentation
+	mod = mapScrollingDetect(mod)
 	if love.keyboard.isDown("left","right","up","down") or pass == 1 then
 	--[[ This sections runs if a directional key is pressed OR if the hero has collided with something.
 	The way it works is such: if the hero collided, it modifies the mod so that it bounces back at a rate
 	5x further than normal. Regardless of collision, it then checks to see if movement is in the x or y axis
 	then moves the hero the correct amount in those directions. Finally, if the hero had collided, it stops
 	him/her from moving, resets the mod to the value it had before, then resets the pass value.]]
-		print(mod,direction)
+		--print(mod,direction) --DEBUGGING
 		if pass == 1 then
 			mod = mod * -5
 			pass = 0.5
@@ -109,9 +122,16 @@ function love.update(dt)
 end
 
 function love.draw()
+	love.graphics.translate(translateX,translateY)
+	map:setDrawRange(translateX,translateY,windowWidth,windowHeight)
 	map:draw()
-	--map:drawCollisionMap(collisionMap) --DEBUGGING
 	love.graphics.draw(sprite, quads[direction][iterator], hero.x, hero.y)
+	--print(translateX) --DEBUGGING
+	--map:drawCollisionMap(collisionMap) --DEBUGGING
+end
+
+function love.quit()
+	print("Exiting Gracefully...")
 end
 
 function love.keypressed(key)
@@ -119,12 +139,26 @@ function love.keypressed(key)
 		moving = true                  -- DON'T TELL ME HOW TO LIVE MY LIFE (my comment)
 		direction = key
 	end
+	if key == "escape" then
+		love.event.quit()
+	end
 end
 function love.keyreleased(key)
 	if quads[key] and direction == key then -- only stop moving if we're still moving in only that direction. (Geocine comment)
 		moving = false
 		iterator = 1
 	end
+	if key == "left" or key == "up" and mod == 0 then
+		mod = 1
+	elseif key == "down" or key == "right" and mod == 0 then
+		mod = -1
+	end
+	if axis == "x" then
+		hero.x = hero.x + hero.speed * mod * deltaT
+	elseif axis == "y" then
+		hero.y = hero.y + hero.speed * mod * deltaT
+	end
+	mod = 0
 end
 
 function movementModifier()
@@ -147,4 +181,17 @@ function movementModifier()
 		axis = "y"
 	end
 	return mod,axis
+end
+
+function mapScrollingDetect(mod)
+	if (hero.x + 40) >= (-1*translateX + windowWidth - 50) then
+		translateX = translateX + -1*hero.speed*deltaT
+	elseif hero.x <= -1*translateX + 50 then
+		translateX = translateX + hero.speed*deltaT
+	elseif (hero.y + 40) >= (-1*translateY + windowHeight - 50) then
+		translateY = translateY + -1*hero.speed*deltaT
+	elseif hero.y <= -1*translateY + 50 then
+		translateY = translateY + hero.speed*deltaT
+	end
+	return mod
 end
