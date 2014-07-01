@@ -70,7 +70,7 @@ function love.load()
 end
 
 function love.update(dt)
-  if love.keyboard.isDown("a") then
+  if love.keyboard.isDown("up") then
   	game:gotoState("Play")
   end
   game:update(dt)
