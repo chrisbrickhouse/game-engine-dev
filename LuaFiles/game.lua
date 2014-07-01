@@ -3,25 +3,52 @@ local Stateful = require 'stateful'
 local Game = class("Game"):include(Stateful)
 
 function Game:initialize()
-	self.image =  love.graphics.newImage("houseobsticle.png")
-	self:gotoState("Menu") -- start on the Menu state
+	self.loveLogo =  love.graphics.newImage("love-game-logo-256x256.png") --this image distributed under the zlib license
+	self.loveWord =  love.graphics.newImage("love-logo-256x128.png")
+	self.ourLogo  =  love.graphics.newImage("houseobsticle.png")
+	self:gotoState("Splash") -- start on the Menu state
 end
 
-local Menu = Game:addState("Menu")
+local Splash = Game:addState("Splash")
 
-function Menu:enteredState() -- create buttons, options, etc and store them into self
-	print("entering the state menu")
+function Splash:enteredState() -- create buttons, options, etc and store them into self
+	print("entering the state splash")
+	self.time = 0
+	self.alpha = 0
 end
 
-function Menu:draw() -- draw the menu
-	love.graphics.draw(self.image,0,0)
+function Splash:draw() -- draw the menu
+	love.graphics.setColor(255,255,255,self.alpha)
+	if self.time <= 4.95 then
+		love.graphics.draw(self.loveLogo,windowWidth/2 - 128, windowHeight/2 - 192)
+		love.graphics.draw(self.loveWord,windowWidth/2 - 128, windowHeight/2 + 64)
+	elseif self.time > 4.95  or self.time > 10 then
+		if self.time < 5 then
+			love.graphics.setColor(0,0,0,255)
+			love.graphics.rectangle("fill", 0 , 0, windowWidth, windowHeight )
+		else
+			love.graphics.draw(self.ourLogo,windowWidth/2 - 128, windowHeight/2 - 128)
+		end
+	end
 end
 
-function Menu:update(dt) -- update anything that needs updates
+function Splash:update(dt) -- update anything that needs updates
+	self._alphachange = 255 / ( 1 / dt )
+	print(self.time)
+	if self.time > 10.05 then
+		self:gotoState("Play")
+	elseif self.time ~= 10.05 then
+		self.time = self.time + dt
+	end
+	if self.time <= 1 or (self.time > 5 and self.time <= 6) then
+		self.alpha = self.alpha + self._alphachange
+	elseif (self.time >= 4 and self.time <= 5) or (self.time > 9 and self.time <=10) then
+		self.alpha = self.alpha - self._alphachange
+	end
 end
 
-function Menu:exitedState() -- destroy buttons, options etc here
-	print("exiting the menu state")
+function Splash:exitedState() -- destroy buttons, options etc here
+	print("exiting the splash state")
 end
 
 local Play = Game:addState("Play")

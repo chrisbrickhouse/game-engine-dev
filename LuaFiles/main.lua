@@ -1,8 +1,8 @@
 local class = require 'middleclass'
 local Stateful = require 'stateful'
 local Game = require 'game'
+local Overlay = require 'overlay'
 
-local game
 local sti = require "sti"                                      --requires the sti module so that Tiled files can be used and parsed.
 collisions = require "Collisions"                        --requires the custom Collisions module
 local Quad = love.graphics.newQuad                             --quad module for using sprite sheets
@@ -67,17 +67,26 @@ function love.load()
 	translateX,translateY = 0,0
 	map:resize(windowWidth, windowHeight)
 	game = Game:new()
+	overlay = Overlay:new()
 end
 
 function love.update(dt)
-  if love.keyboard.isDown("a") then
-  	game:gotoState("Play")
-  end
-  game:update(dt)
+	if overlay.isActive then
+		overlay:update()
+	end
+	if love.keyboard.isDown("a") then
+	  	game:gotoState("Play")
+	elseif love.keyboard.isDown(" ") then
+		overlay:gotoState("Dialogue")
+	end
+	game:update(dt)
 end
 
 function love.draw()
-  game:draw()
+	game:draw()
+	if overlay.isActive then
+		overlay:draw()
+	end
 end
 
 function love.quit()
