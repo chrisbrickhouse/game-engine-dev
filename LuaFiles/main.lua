@@ -1,10 +1,26 @@
-local class = require 'middleclass'
-local Stateful = require 'stateful'
-local Game = require 'game'
-local Overlay = require 'overlay'
+--[[
+	Copyright (c) 2014 Christian Brickhouse
+
+	This program is free software: you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation, either version 2 of the License, or
+	(at your option) any later version.
+
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
+
+	You should have received a copy of the GNU General Public License
+	along with this program.  If not, see <http://www.gnu.org/licenses/>.
+]]
+local class = require 'middleclass'                            --middleclass module implements classes
+local Stateful = require 'stateful'                            --introduces game states
+local Game = require 'game'                                    --custom module with gameplay states and classes
+local Overlay = require 'overlay'                              --custom module with overlays like dialogue and inventory
 
 local sti = require "sti"                                      --requires the sti module so that Tiled files can be used and parsed.
-collisions = require "Collisions"                        --requires the custom Collisions module
+collisions = require "Collisions"                              --requires the custom Collisions module
 local Quad = love.graphics.newQuad                             --quad module for using sprite sheets
 function love.load() 
 	pass = 0                                               --this variable tells whether the hero has collided (1) or not (0)
@@ -15,7 +31,7 @@ function love.load()
 	--[[for i,v in ipairs(modes) do
 		print(modes[i]["width"])
 	end]]
-	local success = {}
+	local success = {} --this table will contain all success values. eventually it will be used to detect if things actually failed but for now it's just a place to stow those pesky success returns
 	table.insert(success, love.window.setMode( modes[1]["width"] , modes[1]["height"]))
 	table.insert(success, love.window.setFullscreen( true , "desktop"))
 	--[[for k,v in pairs(collisionMap["data"]) do
@@ -71,31 +87,31 @@ function love.load()
 end
 
 function love.update(dt)
-	if overlay.isActive then
+	if overlay.isActive then --only updates the overlay section if one of the overlays is on
 		overlay:update()
 	end
-	if love.keyboard.isDown("a") then
+	if love.keyboard.isDown("a") then --lets me skip the splash screen and menu
 	  	game:gotoState("Play")
-	elseif love.keyboard.isDown(" ") then
+	elseif love.keyboard.isDown(" ") then --dialogue testing
 		overlay:gotoState("Dialogue")
 	end
-	game:update(dt)
+	game:update(dt) --updates game
 end
 
 function love.draw()
-	game:draw()
-	if overlay.isActive then
+	game:draw() --always draws the game layer first
+	if overlay.isActive then --only draws the overlay if it's active
 		overlay:draw()
 	end
 end
 
 function love.quit()
-	print("Exiting Gracefully...")
+	print("Exiting Gracefully...") 
 end
 
 function love.keypressed(key)
-	if quads[key] and moving == false then -- this is really ugly. Don't do it like this in your final game (Geocine comment)
-		moving = true                  -- DON'T TELL ME HOW TO LIVE MY LIFE (my comment)
+	if quads[key] and moving == false then 
+		moving = true                 
 		direction = key
 	end
 	if key == "escape" then
@@ -103,19 +119,5 @@ function love.keypressed(key)
 	end
 end
 function love.keyreleased(key)
-	if quads[key] and direction == key then -- only stop moving if we're still moving in only that direction. (Geocine comment)
-		moving = false
-		iterator = 1
-	end
-	if key == "left" or key == "up" and mod == 0 then
-		mod = 1
-	elseif key == "down" or key == "right" and mod == 0 then
-		mod = -1
-	end
-	if axis == "x" then
-		hero.x = hero.x + hero.speed * mod * deltaT
-	elseif axis == "y" then
-		hero.y = hero.y + hero.speed * mod * deltaT
-	end
-	mod = 0
+	game:keyreleased(key) --depending on the state, different keys do different things when keys are released. this helps with that
 end

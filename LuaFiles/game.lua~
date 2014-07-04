@@ -21,7 +21,7 @@ local Game = class("Game"):include(Stateful)
 function Game:initialize()
 	self.loveLogo =  love.graphics.newImage("love-game-logo-256x256.png") --this image distributed under the zlib license
 	self.loveWord =  love.graphics.newImage("love-logo-256x128.png")      --this image distributed under the zlib license
-	self.ourLogo  =  love.graphics.newImage("fox-paw-games5-256x478.png")
+	self.ourLogo  =  love.graphics.newImage("fox-pawp-games5-256x478.png")
 	self:gotoState("Splash") -- start on the Menu state
 end
 
