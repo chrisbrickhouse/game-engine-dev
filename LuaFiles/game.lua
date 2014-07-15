@@ -16,12 +16,13 @@
 ]]
 local class = require 'middleclass'
 local Stateful = require 'stateful'
+local Level = require 'level'
 local Game = class("Game"):include(Stateful)
 
 function Game:initialize()
 	self.loveLogo =  love.graphics.newImage("love-game-logo-256x256.png") --this image distributed under the zlib license
 	self.loveWord =  love.graphics.newImage("love-logo-256x128.png")      --this image distributed under the zlib license
-	self.ourLogo  =  love.graphics.newImage("fox-paw-games5-256x478.png")
+	self.ourLogo  =  love.graphics.newImage("fox-pawp-games5-256x478.png")
 	self:gotoState("Splash") -- start on the Menu state
 end
 
@@ -29,6 +30,7 @@ local Splash = Game:addState("Splash") --adds splash screen state
 
 function Splash:enteredState() -- create buttons, options, etc and store them into self
 	print("entering the state splash")
+	level = Level:new()
 	self.time = 0 --keeps track of time elapsed so logos can be switched
 	self.alpha = 0 --holds progressive alphas
 end
@@ -160,6 +162,7 @@ function Menu:keyreleased(key)
 			self:gotoState("Play")
 		elseif self.currentItem == 'newgame' then
 			print("making new game")
+			level:gotoState("levelOne")
 			self:gotoState("Play")
 		end
 	end
@@ -175,6 +178,7 @@ end
 
 function Play:update(dt)
 	--print(hero.x)
+--	level:update(dt)
 	deltaT = dt
 	pass = collisions.detection(collisionMap)              --calls the collision detection function to see if the hero collided
 	map:update(dt)                                         --updates the map
@@ -191,6 +195,54 @@ function Play:update(dt)
 	end
 	mod,axis = movementModifier()                          --see function documentation
 	mod = mapScrollingDetect(mod)
+	if pass == 1 then
+		if mod > 0 then
+			if axis == "x" then 
+				hero.stop.x = hero.x + (tileWidth - (hero.x%40))
+				hero.x = hero.stop.x
+			elseif axis == "y" then 
+				hero.stop.y = hero.y + (tileWidth - (hero.y%40))
+				hero.y = hero.stop.y
+				end
+		elseif mod < 0 then
+			if axis == "x" then 
+				hero.stop.x = hero.x - (hero.x%tileWidth)
+				hero.x = hero.stop.x
+			elseif axis == "y" then	
+				hero.stop.y = hero.y - (hero.y%tileWidth)
+				hero.y = hero.stop.y
+				end
+		end
+	end
+	if axis == "x" then
+		if math.ceil(hero.x) ~= hero.stop.x and math.floor(hero.x) ~= hero.stop.x then
+			moving = true
+			--print(math.floor(hero.x),math.ceil(hero.x),hero.x,hero.stop.x)
+			hero.x = hero.x + tileWidth * hero.speed * dt * mod
+		elseif (math.ceil(hero.x) == hero.stop.x or math.floor(hero.x) == hero.stop.x) and moving == true then
+			print(hero.stop.x,hero.x,hero.stop.y, hero.y,"released 2")
+			hero.x = hero.stop.x
+			print(hero.stop.x,hero.x,hero.stop.y, hero.y,"released 3")
+			--print(math.floor(hero.x),math.ceil(hero.x),hero.x,hero.stop.x)
+			moving = false
+			iterator = 1
+			mod = 0
+		end
+	elseif axis == "y" then
+		if math.ceil(hero.y) ~= hero.stop.y and math.floor(hero.y) ~= hero.stop.y then
+			moving = true
+			--print(math.floor(hero.y),math.ceil(hero.y),hero.y,hero.stop.y)
+			hero.y = hero.y + tileWidth * hero.speed * dt * mod
+		elseif (math.ceil(hero.y) == hero.stop.y or math.floor(hero.y) == hero.stop.y) and moving == true then
+			print(hero.stop.x,hero.x,hero.stop.y, hero.y,"released 4")
+			hero.y = hero.stop.y
+			print(hero.stop.x,hero.x,hero.stop.y, hero.y,"released 5")
+			--print(math.floor(hero.y),math.ceil(hero.y),hero.y,hero.stop.y)
+			moving = false
+			iterator = 1
+			mod = 0
+		end
+	end
 	if love.keyboard.isDown("left","right","up","down") or pass == 1 then
 	--[[ This sections runs if a directional key is pressed OR if the hero has collided with something.
 	The way it works is such: if the hero collided, it modifies the mod so that it bounces back at a rate
@@ -198,18 +250,35 @@ function Play:update(dt)
 	then moves the hero the correct amount in those directions. Finally, if the hero had collided, it stops
 	him/her from moving, resets the mod to the value it had before, then resets the pass value.]]
 		--print(mod,direction) --DEBUGGING
+		moving = true
+		mod,axis = movementModifier()
+		--print(hero.stop.x,hero.stop.y,hero.y,mod,"ln 236",pass)
 		if pass == 1 then
-			mod = mod * -5
-			pass = 0.5
+			if mod > 0 then
+				if axis == "x" then hero.stop.x = hero.x + (tileWidth - (hero.x%40))
+				elseif axis == "y" then hero.stop.y = hero.y + (tileWidth - (hero.y%40)) end
+			elseif mod < 0 then
+				if axis == "x" then hero.stop.x = hero.x - (hero.x%tileWidth)
+				elseif axis == "y" then hero.stop.y = hero.y - (hero.y%tileWidth) end
+			end
 		end
+		--print(hero.stop.x,hero.stop.y,hero.y,mod,"ln 241",pass)
 		if axis == "x" then
-			hero.x = hero.x + hero.speed * mod * dt
+			if math.floor(hero.x) == hero.stop.x or math.ceil(hero.x) == hero.stop.x then
+				if mod > 0 then hero.stop.x = hero.x + (tileWidth - (hero.x%40)) + tileWidth
+				elseif mod < 0 then hero.stop.x = hero.x - (hero.x%tileWidth) - tileWidth end
+				--hero.stop.x = hero.stop.x + tileWidth * mod
+			end
 		elseif axis == "y" then
-			hero.y = hero.y + hero.speed * mod * dt
+			if math.floor(hero.y) == hero.stop.y then
+				if mod > 0 then hero.stop.y = hero.y + (tileWidth - (hero.y%40)) + tileWidth
+				elseif mod < 0 then hero.stop.y = hero.y - (hero.y%tileWidth) - tileWidth end
+				--hero.stop.y = hero.stop.y + tileWidth * mod
+			end
 		end
 		if pass == 0.5 then
 			moving = false
-			mod = mod / -5
+			mod = 0
 			pass = 0
 		end
 	end
@@ -219,27 +288,38 @@ function Play:draw()
 	love.graphics.translate(translateX,translateY)
 	map:setDrawRange(translateX,translateY,windowWidth,windowHeight)
 	map:draw()
+	--level:draw()
 	love.graphics.draw(sprite, quads[direction][iterator], hero.x, hero.y)
 	--print(translateX) --DEBUGGING
 	--map:drawCollisionMap(collisionMap) --DEBUGGING
 end
 
 function Play:keyreleased(key)
-	if quads[key] and direction == key then -- only stop moving if we're still moving in only that direction. (Geocine comment)
+	if quads[key] and direction == key and math.ceil(hero.x) == hero.stop.x then -- only stop moving if we're still moving in only that direction. (Geocine comment)
+		--print("why is this executing?")
 		moving = false
-		iterator = 1
-	end
-	if key == "left" or key == "up" and mod == 0 then
-		mod = 1
-	elseif key == "down" or key == "right" and mod == 0 then
-		mod = -1
-	end
-	if axis == "x" then
-		hero.x = hero.x + hero.speed * mod * deltaT
+		iterator = 1--[[
+	elseif axis == "x" and math.floor(hero.x) ~= hero.stop.x then
+		hero.x = hero.x + (hero.x-hero.stop.x) * deltaT * mod
 	elseif axis == "y" then
 		hero.y = hero.y + hero.speed * mod * deltaT
+	elseif quads[key] and direction == key and math.floor(hero.x) == hero.stop.x then
+		mod = 0]]
 	end
-	mod = 0
+	if quads[key] and direction == key then
+		print(hero.stop.x,hero.x,hero.stop.y, hero.y,"released 0")
+		if mod > 0 then
+			if axis == "x" then hero.stop.x = hero.x + (tileWidth - (hero.x%40))
+			elseif axis == "y" then hero.stop.y = hero.y + (tileWidth - (hero.y%40)) end
+		elseif mod < 0 then
+			if axis == "x" then hero.stop.x = hero.x - (hero.x%tileWidth)
+			elseif axis == "y" then hero.stop.y = hero.y - (hero.y%tileWidth) end
+		end
+		print(hero.stop.x,hero.x,hero.stop.y, hero.y,"released 1")
+	end
+	if key == "c" then
+		print("ALERT")
+	end
 end
 
 function movementModifier()
@@ -270,13 +350,13 @@ function mapScrollingDetect(mod)
 	this works but I'm pretty sure it's just an advanced version of the standard collision logic but there's no
 	bounce back and it manages to move the screen.]]
 	if (hero.x + 40) >= (-1*translateX + windowWidth - 50) then
-		translateX = translateX + -1*hero.speed*deltaT
+		translateX = translateX + -tileWidth*hero.speed*deltaT
 	elseif hero.x <= -1*translateX + 50 then
-		translateX = translateX + hero.speed*deltaT
+		translateX = translateX + tileWidth*hero.speed*deltaT
 	elseif (hero.y + 40) >= (-1*translateY + windowHeight - 50) then
-		translateY = translateY + -1*hero.speed*deltaT
+		translateY = translateY + -tileWidth*hero.speed*deltaT
 	elseif hero.y <= -1*translateY + 50 then
-		translateY = translateY + hero.speed*deltaT
+		translateY = translateY + tileWidth*hero.speed*deltaT
 	end
 	return mod
 end

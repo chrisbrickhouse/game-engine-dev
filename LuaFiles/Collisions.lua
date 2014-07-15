@@ -27,10 +27,14 @@ function Collisions.detection(collisionMap)
 		--DEBUGGING
 		counter = 0
 	end]]
-	local Left = math.floor(hero.x / 40) + 1
-	local Top = math.floor(hero.y / 40) + 1                --These create the four edges of the hero
-	local Right = math.floor((hero.x + 40) / 40) + 1
-	local Bottom = math.floor((hero.y + 40) / 40) + 1
+	--[[local Left = math.floor(hero.x / tileWidth) + 1
+	local Top = math.floor(hero.y / tileWidth) + 1                --These create the four edges of the hero
+	local Right = math.floor((hero.x + tileWidth) / tileWidth) + 1
+	local Bottom = math.floor((hero.y + tileWidth) / tileWidth) + 1--[[]]
+	local Left = math.floor(hero.stop.x / tileWidth) + 1
+	local Top = math.floor(hero.stop.y / tileWidth) + 1                --These create the four edges of the hero
+	local Right = math.floor((hero.stop.x + tileWidth) / tileWidth) + 1
+	local Bottom = math.floor((hero.stop.y + tileWidth) / tileWidth) + 1--]]
 	local combos = {{Top,Bottom},{Left,Right}}             --This table holds the top/bottom and left/right edge values
 	--print(heroLine,heroColumn) --DEBUGGING
 	for TB = 1,2 do                                        --runs through for the top, then the bottom

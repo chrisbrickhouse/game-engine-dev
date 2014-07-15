@@ -73,7 +73,11 @@ function love.load()
 	hero = {}					       --this table holds data on the user controled character
 	hero.x = 400
 	hero.y = 400
-	hero.speed = 100
+	hero.speed = 2
+	tileWidth = 40
+	hero.stop = {}
+	hero.stop.x = 400
+	hero.stop.y = 400
 	iterator = 1
 	max = 4 --maximum number of frames
 	timer = 0
